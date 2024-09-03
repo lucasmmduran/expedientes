@@ -56,49 +56,85 @@ class MainController extends Controller
 				return !empty(trim($line));
 		});
 
-		$columns = [
+	/* 	$table = 
+		[
 			'EXPTE NRO',
-			'ORDEN',
-			'PAGINAS',
 			'SUSCRIPTOR ORIGINAL',
-			'DNI',
-			'IMPORTE A CANCELAR',
-			'BONOS 4TA SERIE AL 2',
-			'CONCEPTO',
-			'EXPRESADOS EN PESOS',
-			'CANT',
+			'DNI M',
 		];
-
-		//return $lines;
+ */
+		
 		$reindexedLines = array_values($lines);
 
-		$result = [];
-		foreach ($reindexedLines as $key => $line) {
-			//if ($key == 1) { // O la condición que prefieras
-					$tempLine = $line; 
-	
-					foreach ($columns as $index => $column) {
-							// Generar un identificador único para cada columna
-							$identifier = $index . '-' . $column;
-							$columnIdentifiers[$identifier] = $column;
-	
-							// Reemplazar cada columna en la línea temporal
-							$tempLine = str_replace($column, "", $tempLine);
-					}
-	
-					// Almacenar el resultado final con un nombre correspondiente
-					foreach ($columnIdentifiers as $identifier => $originalColumn) {
-							if (strpos($line, $originalColumn) !== false) {
-									$result[$identifier] = $tempLine;
-									break; // Salir del bucle una vez que se ha asignado el resultado
-							}
-					}
-			//}
-	}
-	
-	return $result;
+		/* $newTable = [];
+		$processedColumns = [];
+		foreach($table as $column) {
+			foreach($reindexedLines as $key => $line) {
+				if (strpos($line, $column) !== false && !isset($processedColumns[$column])) {
+					$processedColumns[$column] = true;
+					$newTable['TABLE_1'][$column][] = str_replace($table, "", $line);	
+					break;		
+				}
+			}
+		} */
 
-		return $result;
+
+		$table = 
+		[
+			'GLOBAL ANTERIOR N',
+			'INTERV. POR SIGEN',
+			'NOTA Nº',
+		];
+// Nuevo array para almacenar los resultados
+$newTable = [];
+
+// Inicializar variable para la línea actual
+$currentLineKey = null;
+
+// Iterar sobre todas las líneas
+foreach ($lines as $key => $line) {
+    // Si estamos en la línea que contiene 'GLOBAL ANTERIOR N', procesar la siguiente línea
+    if ($currentLineKey !== null) {
+        // Obtener la línea siguiente
+        $nextLine = $lines[$key];
+        
+        // Inicializar variables para almacenar los valores encontrados
+        $values = [];
+
+        // Buscar los valores correspondientes a cada columna en la línea siguiente
+        foreach ($table as $column) {
+            // Buscar la posición de cada columna en la línea siguiente
+            $pos = strpos($nextLine, $column);
+            if ($pos !== false) {
+                // Extraer el valor después de la columna encontrada
+                $startPos = $pos + strlen($column);
+                // Encontrar el siguiente espacio para determinar el final del valor
+                $endPos = strpos($nextLine, ' ', $startPos);
+                // Extraer el valor, o tomar el resto de la cadena si no hay más espacios
+                $value = ($endPos !== false) ? substr($nextLine, $startPos, $endPos - $startPos) : substr($nextLine, $startPos);
+                // Almacenar el valor en el array de valores
+                $values[$column] = trim($value);
+            }
+        }
+
+        // Almacenar los valores en $newTable si se encontraron valores
+        if (!empty($values)) {
+            $newTable[$key] = $values;
+        }
+
+        // Reiniciar la variable de línea actual
+        $currentLineKey = null;
+    }
+
+    // Verificar si la línea actual contiene 'GLOBAL ANTERIOR N'
+    if (strpos($line, 'GLOBAL ANTERIOR N') !== false) {
+        // Establecer la línea siguiente como la línea actual para procesar
+        $currentLineKey = $key;
+    }
+}
+
+
+		return $newTable;
 	
 
 	}

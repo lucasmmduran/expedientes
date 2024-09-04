@@ -7,136 +7,133 @@ use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class MainController extends Controller
 {
-    public function index()
-    {
-        try {
-            //$folder = 'Otros/2018-24123718-APN_DGD_MHA/';
-            $pdfFile = '00010_IF-2022-15575413-APN-DCDYPPP#MEC.pdf';
-            $outputImage = '00010_IF-2022-15575413-APN-DCDYPPP#MEC.png';
-            $this->convertirPdfAImagen($pdfFile, $outputImage);
-        
-        
-            $texto = $this->extraerTextoDeImagen($outputImage);
-        		$data = $this->procesarTextoOk($texto);
-						dd($data);
-						//echo $this->guardar((data);
-        
-        } catch (Exception $e) {
-            echo "Error: " . $e->getMessage();
-        }
-    }
+	public function index()
+	{
+		try {
+			//$folder = 'Otros/2018-24123718-APN_DGD_MHA/';
+			$pdfFile = '00010_IF-2022-15575413-APN-DCDYPPP#MEC.pdf';
+			$outputImage = '00010_IF-2022-15575413-APN-DCDYPPP#MEC.png';
+			$this->convertirPdfAImagen($pdfFile, $outputImage);
+	
+	
+			$texto = $this->extraerTextoDeImagen($outputImage);
+			dd($texto);
+			$data = $this->procesarTextoOk($texto);
+			dd($data);
+			//echo $this->guardar((data);
+		
+		} catch (Exception $e) {
+			echo "Error: " . $e->getMessage();
+		}
+	}
 
 	protected function convertirPdfAImagen($pdfFile, $outputImage, $firstPage = 1, $lastPage = 1) 
 	{
-    	//$command = "gswin64c -r720 -sDEVICE=pngalpha -o $outputImage -dFirstPage=$firstPage -dLastPage=$lastPage $pdfFile";
-    	$command = "gs -r720 -sDEVICE=pngalpha -o $outputImage -dFirstPage=$firstPage -dLastPage=$lastPage $pdfFile";
-    	exec($command, $output, $return_var);
-	    if ($return_var !== 0) {
-        	throw new Exception();
-    	}
+		//$command = "gswin64c -r720 -sDEVICE=pngalpha -o $outputImage -dFirstPage=$firstPage -dLastPage=$lastPage $pdfFile";
+		$command = "gs -r720 -sDEVICE=pngalpha -o $outputImage -dFirstPage=$firstPage -dLastPage=$lastPage $pdfFile";
+		exec($command, $output, $return_var);
+		if ($return_var !== 0) {
+			throw new Exception();
+		}
 	}
 
 	protected function extraerTextoDeImagen($outputImage) 
 	{
-    	$ocr = new TesseractOCR($outputImage);
-    	$texto = ($ocr)->run();
-	    return $texto;
+		$ocr = new TesseractOCR($outputImage);
+		$texto = ($ocr)->run();
+		return $texto;
 	}
 
 	protected function procesarTextoOk($text) 
 	{
 		// Limpiar el texto de caracteres no deseados
-		$cleanedText = preg_replace('/[^a-zA-Z0-9,:;\n\s]/', '', $text);
+		//$cleanedText = preg_replace('/[^a-zA-Z0-9,:;\n\s]/', '', $text);
 
 		// Separar el texto en líneas
-		$lines = explode("\n", trim($cleanedText));
+		$lines = explode("\n", trim($text));
 
 		// Filtrar líneas vacías
 		$lines = array_filter($lines, function($line) {
 				return !empty(trim($line));
 		});
 
-	/* 	$table = 
-		[
-			'EXPTE NRO',
-			'SUSCRIPTOR ORIGINAL',
-			'DNI M',
-		];
- */
-		
 		$reindexedLines = array_values($lines);
-
-		/* $newTable = [];
+		
+		
+		$table = ['EXPTE NRO', 'SUSCRIPTOR ORIGINAL', 'DNI M'];
+		$newTable = [];
 		$processedColumns = [];
 		foreach($table as $column) {
 			foreach($reindexedLines as $key => $line) {
+
 				if (strpos($line, $column) !== false && !isset($processedColumns[$column])) {
 					$processedColumns[$column] = true;
-					$newTable['TABLE_1'][$column][] = str_replace($table, "", $line);	
+					$value = str_replace($table, "", $line);	
+
+					if($column == 'DNI M') {
+						$newTable['TABLE_1'][$column][] = $this->truncateString($value);
+					} else {
+						$newTable['TABLE_1'][$column][] = str_replace("ORDEN | PAGINAS", "", $value);
+					}
+
 					break;		
 				}
+
 			}
-		} */
+		}
+		
+		
+		$columnNames = ["IT", "CONCEPTO", "EXPRESADOS EN PESOS", "CANT"];
+		$columnsFound = false;
+		foreach ($reindexedLines as $line) {
+			if (!$columnsFound) {
+				// Buscamos la línea que contiene las columnas
+				$matches = [];
+				$regex = '/\b(?:' . implode('|', array_map('preg_quote', $columnNames)) . ')\b/';
+				preg_match_all($regex, $line, $matches);
 
+				// Si encontramos todas las columnas en la línea, marcamos que las encontramos
+				if (count($matches[0]) === count($columnNames)) {
+					$columnsFound = true;
+					continue;
+				}
+			} else {
+				// Si ya encontramos las columnas, mapeamos los valores
+				$values = preg_split('/\s+/', trim($line));
 
-		$table = 
-		[
-			'GLOBAL ANTERIOR N',
-			'INTERV. POR SIGEN',
-			'NOTA Nº',
-		];
-// Nuevo array para almacenar los resultados
-$newTable = [];
-
-// Inicializar variable para la línea actual
-$currentLineKey = null;
-
-// Iterar sobre todas las líneas
-foreach ($lines as $key => $line) {
-    // Si estamos en la línea que contiene 'GLOBAL ANTERIOR N', procesar la siguiente línea
-    if ($currentLineKey !== null) {
-        // Obtener la línea siguiente
-        $nextLine = $lines[$key];
-        
-        // Inicializar variables para almacenar los valores encontrados
-        $values = [];
-
-        // Buscar los valores correspondientes a cada columna en la línea siguiente
-        foreach ($table as $column) {
-            // Buscar la posición de cada columna en la línea siguiente
-            $pos = strpos($nextLine, $column);
-            if ($pos !== false) {
-                // Extraer el valor después de la columna encontrada
-                $startPos = $pos + strlen($column);
-                // Encontrar el siguiente espacio para determinar el final del valor
-                $endPos = strpos($nextLine, ' ', $startPos);
-                // Extraer el valor, o tomar el resto de la cadena si no hay más espacios
-                $value = ($endPos !== false) ? substr($nextLine, $startPos, $endPos - $startPos) : substr($nextLine, $startPos);
-                // Almacenar el valor en el array de valores
-                $values[$column] = trim($value);
-            }
-        }
-
-        // Almacenar los valores en $newTable si se encontraron valores
-        if (!empty($values)) {
-            $newTable[$key] = $values;
-        }
-
-        // Reiniciar la variable de línea actual
-        $currentLineKey = null;
-    }
-
-    // Verificar si la línea actual contiene 'GLOBAL ANTERIOR N'
-    if (strpos($line, 'GLOBAL ANTERIOR N') !== false) {
-        // Establecer la línea siguiente como la línea actual para procesar
-        $currentLineKey = $key;
-    }
-}
-
+				// Asociamos cada columna con su valor correspondiente
+				foreach ($columnNames as $index => $column) {
+						if (isset($values[$index])) {
+								$newTable['TABLE_2'][$column][] = $values[$index];
+						} else {
+								$newTable['TABLE_2'][$column][] = null; // Si no hay un valor correspondiente, asignamos null
+						}
+				}
+				
+				break; // Salimos del bucle ya que solo necesitamos mapear una línea de valores
+			}
+		}	
 
 		return $newTable;
+
 	
 
+	}
+
+	protected function truncateString($string) 
+	{
+    // Trunca el string a 11 caracteres
+    $truncated = substr($string, 0, 11);
+
+    // Busca el último espacio en el string truncado
+    $lastSpacePosition = strrpos($truncated, ' ');
+
+    // Si hay un espacio, corta el string hasta el último espacio
+    if ($lastSpacePosition !== false) {
+        $truncated = substr($truncated, 0, $lastSpacePosition);
+    }
+
+    return $truncated;
 	}
 
 	protected function procesarTexto($texto) 

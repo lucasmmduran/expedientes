@@ -13,11 +13,13 @@ return new class extends Migration
     {
         Schema::create('suscriptores', function (Blueprint $table) {
             $table->id();
-            $table->string('numero_if');
-            $table->foreign('numero_if')->references('numero_if')->on('expedientes')->onDelete('cascade');
             $table->string('expte_nro')->nullable();
             $table->string('suscriptor_original')->nullable();
-            $table->string('le')->nullable();
+            $table->string('dni')->nullable();
+            $table->integer('orden')->nullable();
+            $table->integer('paginas')->nullable();
+            $table->string('numero_if');
+            $table->foreign('numero_if')->references('numero_if')->on('expedientes')->onDelete('cascade');
             $table->timestamps();
         });
     }
